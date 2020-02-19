@@ -15,12 +15,11 @@ from selenium import webdriver
 # $ yay -S chromium // chromium browser comes included with chromedriver
 
 
-# try:
-#	with open('configggg.json') as file:
-#		print(file.readlines())
-# Do something with the file
-# except IOError:
-#	print("File not accessible")
+try:
+	with open('configggg.json') as file:
+		print(file.readlines())
+except IOError:
+	print("File not accessible")
 
 
 # put image on the poll next to the item that has an image.
@@ -36,8 +35,6 @@ chrome_driver = "chromedriver"
 driver = webdriver.Chrome(options=chrome_options, executable_path=chrome_driver)
 
 # configure the telegram bot
-# access_token = "808085305:AAE4QDvJf5bnrDhIz_hvtvDDd4NU0Rp3YJ8"
-#access_token = "969464614:AAGeFfveEcQEmQpHt-Rn3hObkXk_-_ydYR4"
 try:
 	with open('bot_access_token.txt', 'r') as file:
 		print(f"Using token: {file.readlines()[0]}")
