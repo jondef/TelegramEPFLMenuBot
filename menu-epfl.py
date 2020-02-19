@@ -1,3 +1,44 @@
+# put image on the poll next to the item that has an image.
+# put the items on the same order as the image
+# only output the menu at 12h each day.
+# ajouter restaurant depuis chat
+# editer restaurant depuis chat
+# add commande help avec toute les commandes
+# configure le moyen de envoye des menu (image, text, link)
+# restaurant name
+# restaurant id
+Restaurants = [
+	(
+		"Orni 🖼",
+		19,
+	),
+	(
+		"Caféteria BC 🖼",
+		18,
+	),
+	(
+		"Le Puur 🖼",
+		42,
+	),
+	(
+		"Hollycow 🖼",
+		None,
+	),
+	(
+		"Le Parmentier 🖼",
+		23,
+	),
+	(
+		"Le Corbusier 🖼",
+		22,
+	),
+	(
+		"Roulottes 🖼",
+		None,
+	)
+
+]
+
 # pip install python-telegram-bot --upgrade
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 import telegram.parsemode
@@ -13,17 +54,6 @@ from selenium import webdriver
 
 # selenium requires chromedriver:
 # $ yay -S chromium // chromium browser comes included with chromedriver
-
-
-try:
-	with open('configggg.json') as file:
-		print(file.readlines())
-except IOError:
-	print("File not accessible")
-
-# put image on the poll next to the item that has an image.
-# put the items on the same order as the image
-# only output the menu at 12h each day.
 
 
 # configure the chrome driver
@@ -47,39 +77,46 @@ except IOError:
 updater = Updater(token=access_token, use_context=True)
 dispatcher = updater.dispatcher
 
-# restaurant name
-# restaurant id
-Restaurants = [
-	(
-		"Orni",
-		19,
-	),
-	(
-		"Caféteria BC",
-		18,
-	),
-	(
-		"Le Puur",
-		42,
-	),
-	(
-		"Hollycow",
-		None,
-	),
-	(
-		"Le Parmentier",
-		23,
-	),
-	(
-		"Le Corbusier",
-		22,
-	),
-	(
-		"Roulottes",
-		None,
-	)
+# make sure the config.json file is present
+try:
+	with open("config.json", 'r') as file:
+		print("Config.json found!")
+except IOError:
+	print("Config.json not found. Creating...")
+	file = open("config.json", "w")
+	data = {}
+	data["Restaurant"] = []
+	data["location"] = "montx"
+	json.dump(data, file, indent=4, sort_keys=True, ensure_ascii=False)
+	file.close()
 
-]
+data = {}
+data["Restaurant"] = []
+data["location"] = "montx"
+data["Restaurant"].append({
+	"name": "Orni",
+	"id": "19"
+})
+data["Restaurant"].append({
+	"name": "Caféteria BC",
+	"id": "18"
+})
+data["Restaurant"].append({
+	"name": "Tim",
+	"id": "apple.com"
+})
+
+with open('config.json', 'w') as outfile:
+	json.dump(data, outfile, indent=4, sort_keys=True, ensure_ascii=False)
+
+
+def getFromConfigFile():
+	pass
+
+
+def writeToConfigFile():
+	pass
+
 
 pollQuestion = "Where do you want to eat?"
 pollOptions = [Restaurant[0] for Restaurant in Restaurants]
@@ -148,7 +185,7 @@ def sendMenuPics(update, context):
 
 # configure the start command
 def start(update, context):
-	context.bot.send_message(chat_id=update.effective_chat.id, text="Cool! Type `/help` to get started!",
+	context.bot.send_message(chat_id=update.effective_chat.id, text="Type `/help` to get started!",
 							 parse_mode=telegram.ParseMode.MARKDOWN)
 
 
@@ -169,12 +206,35 @@ dispatcher.add_handler(caps_handler)
 
 #############################
 
+def add_restaurant(update, context):
+	if len(context.args) == 2:
+		restaurant_name = context.args[0]
+		restaurant_id = context.args[1]
+
+		data["Restaurant"].append({
+			"name": restaurant_name,
+			"id": restaurant_id
+		})
+
+		with open('config.json', 'w') as outfile:
+			json.dump(data, outfile, indent=4, sort_keys=True, ensure_ascii=False)
+
+		context.bot.send_message(chat_id=update.effective_chat.id, text=
+			f"Successfully added restaurant '{restaurant_name}' with id {restaurant_id} !")
+
+
+add_restaurant_handler = CommandHandler('addrestaurant', add_restaurant)
+dispatcher.add_handler(add_restaurant_handler)
+
+
+#############################
+
 def get_menu(update, context):
 	context.bot.send_chat_action(chat_id=update.effective_chat.id, action=telegram.ChatAction.TYPING)
 	context.bot.send_message(chat_id=update.effective_chat.id, text="Alright, getting today's menu...")
 	sendMenuPics(update, context)
 	context.bot.sendPoll(update.effective_chat.id, pollQuestion, pollOptions, disable_notification=False,
-						 reply_to_message_id=None, reply_markup=None, timeout=None)
+						 reply_to_message_id=None, reply_markup=None, timeout=None, allows_multiple_answers=True)
 
 
 menu_handler = CommandHandler('menu', get_menu)

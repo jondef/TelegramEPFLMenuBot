@@ -1,19 +1,21 @@
 {
-    "people": [
+    "Restaurant": [
         {
-            "from": "Nebraska",
-            "name": "Scott",
-            "website": "stackabuse.com"
+            "id": "19",
+            "name": "Orni"
         },
         {
-            "from": "Michigan",
-            "name": "Larry",
-            "website": "google.com"
+            "id": "18",
+            "name": "Caféteria BC"
         },
         {
-            "from": "Alabama",
-            "name": "Tim",
-            "website": "apple.com"
+            "id": "apple.com",
+            "name": "Tim"
+        },
+        {
+            "id": "19",
+            "name": "Omnim"
         }
-    ]
+    ],
+    "location": "montx"
 }
