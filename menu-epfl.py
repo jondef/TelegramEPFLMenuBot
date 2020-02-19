@@ -34,6 +34,7 @@ chrome_options.add_argument("--window-size=1920x1080")
 chrome_driver = "chromedriver"
 driver = webdriver.Chrome(options=chrome_options, executable_path=chrome_driver)
 
+
 # configure the telegram bot
 try:
 	with open('bot_access_token.txt', 'r') as file:
