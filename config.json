@@ -1,0 +1,19 @@
+{
+    "people": [
+        {
+            "from": "Nebraska",
+            "name": "Scott",
+            "website": "stackabuse.com"
+        },
+        {
+            "from": "Michigan",
+            "name": "Larry",
+            "website": "google.com"
+        },
+        {
+            "from": "Alabama",
+            "name": "Tim",
+            "website": "apple.com"
+        }
+    ]
+}
