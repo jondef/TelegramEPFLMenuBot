@@ -21,7 +21,6 @@ try:
 except IOError:
 	print("File not accessible")
 
-
 # put image on the poll next to the item that has an image.
 # put the items on the same order as the image
 # only output the menu at 12h each day.
@@ -34,16 +33,17 @@ chrome_options.add_argument("--window-size=1920x1080")
 chrome_driver = "chromedriver"
 driver = webdriver.Chrome(options=chrome_options, executable_path=chrome_driver)
 
-
 # configure the telegram bot
 try:
 	with open('bot_access_token.txt', 'r') as file:
-		print(f"Using token: {file.readlines()[0]}")
-		access_token = file.readlines()[0]
-		print(access_token)
+		access_token = file.readline().rstrip()
+		print(f"Using bot token: {access_token}")
 except IOError:
-	print("File not accessible")
+	print("bot_access_token.txt not found. Creating file...Please enter your token in the file")
+	file = open("bot_access_token.txt", "w")
+	file.close()
 	exit()
+
 updater = Updater(token=access_token, use_context=True)
 dispatcher = updater.dispatcher
 
