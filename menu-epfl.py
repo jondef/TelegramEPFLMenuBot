@@ -1,43 +1,9 @@
-# put image on the poll next to the item that has an image.
-# put the items on the same order as the image
 # only output the menu at 12h each day.
 # ajouter restaurant depuis chat
 # editer restaurant depuis chat
 # add commande help avec toute les commandes
 # configure le moyen de envoye des menu (image, text, link)
-# restaurant name
-# restaurant id
-Restaurants = [
-	(
-		"Orni 🖼",
-		19,
-	),
-	(
-		"Caféteria BC 🖼",
-		18,
-	),
-	(
-		"Le Puur 🖼",
-		42,
-	),
-	(
-		"Hollycow 🖼",
-		None,
-	),
-	(
-		"Le Parmentier 🖼",
-		23,
-	),
-	(
-		"Le Corbusier 🖼",
-		22,
-	),
-	(
-		"Roulottes 🖼",
-		None,
-	)
 
-]
 
 # pip install python-telegram-bot --upgrade
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
@@ -47,6 +13,8 @@ import telegram.parsemode
 from PIL import Image
 from io import BytesIO
 import json
+import datetime
+import time
 
 # pip install selenium
 from selenium.webdriver.chrome.options import Options
@@ -77,6 +45,16 @@ except IOError:
 updater = Updater(token=access_token, use_context=True)
 dispatcher = updater.dispatcher
 
+
+def dumpToConfigFile(data):
+	try:
+		with open("config.json", 'w') as file:
+			json.dump(data, file, indent=4, sort_keys=True, ensure_ascii=False)
+	except IOError:
+		print("Error writing to config file. Exiting.")
+		exit()
+
+
 # make sure the config.json file is present
 try:
 	with open("config.json", 'r') as file:
@@ -84,42 +62,12 @@ try:
 except IOError:
 	print("Config.json not found. Creating...")
 	file = open("config.json", "w")
-	data = {}
-	data["Restaurant"] = []
-	data["location"] = "montx"
-	json.dump(data, file, indent=4, sort_keys=True, ensure_ascii=False)
-	file.close()
+	data = {"chats": {}}
+	dumpToConfigFile(data)
 
-data = {}
-data["Restaurant"] = []
-data["location"] = "montx"
-data["Restaurant"].append({
-	"name": "Orni",
-	"id": "19"
-})
-data["Restaurant"].append({
-	"name": "Caféteria BC",
-	"id": "18"
-})
-data["Restaurant"].append({
-	"name": "Tim",
-	"id": "apple.com"
-})
-
-with open('config.json', 'w') as outfile:
-	json.dump(data, outfile, indent=4, sort_keys=True, ensure_ascii=False)
-
-
-def getFromConfigFile():
-	pass
-
-
-def writeToConfigFile():
-	pass
-
-
-pollQuestion = "Where do you want to eat?"
-pollOptions = [Restaurant[0] for Restaurant in Restaurants]
+# get config
+with open('config.json') as file:
+	data = dict(json.load(file))
 
 
 # does some web scraping to collect the image of the menu
@@ -171,37 +119,47 @@ def captureMenuPic(aResto_id: int):
 
 ###############################
 
-# sends the menu pictures with the appropriate caption
+# sends the pictures of the menu with the appropriate caption
 def sendMenuPics(update, context):
-	for restaurant in Restaurants:
+	for restaurant_data in data["chats"][str(update.effective_chat.id)]["restaurants"]:
 		# if a picture of the menu was found
-		if restaurant[1] is not None:
-			context.bot.send_photo(update.effective_chat.id, captureMenuPic(restaurant[1]),
-								   caption=f"{restaurant[0]}'s menu", disable_notification=False,
+		if restaurant_data["id"] != "None":
+			context.bot.send_photo(update.effective_chat.id, captureMenuPic(restaurant_data["id"]),
+								   caption=f"{restaurant_data['name']}'s menu", disable_notification=False,
 								   reply_to_message_id=None, reply_markup=None, timeout=20, parse_mode=None)
 
+
+def sendMenuText(update, context):
+	for restaurant_data in data[str(update.effective_chat.id)]["Restaurant"]:
+		# if a picture of the menu was found
+		if restaurant_data["id"] != "None":
+			context.bot.send_message(chat_id=update.effective_chat.id, text="")
 
 ##############################
 
 # configure the start command
 def start(update, context):
-	context.bot.send_message(chat_id=update.effective_chat.id, text="Type `/help` to get started!",
-							 parse_mode=telegram.ParseMode.MARKDOWN)
+
+	# if the current chat id is not in data
+	if str(update.effective_chat.id) not in data["chats"]:
+		data["chats"][str(update.effective_chat.id)] = {
+			# todo: save initial variables here
+			"restaurants": [],
+			"autoSendMenu": "true",
+			"autoSendMenuTimeOfDay": "1130",
+			"menuDisplayType": "image",
+			"menuSentToday": "0",
+			"sendLimitPerDay": "1"
+		}
+		dumpToConfigFile(data)
+		context.bot.send_message(chat_id=update.effective_chat.id, text="Chat added")
+
+	context.bot.send_message(
+		chat_id=update.effective_chat.id, text="Type `/help` to get started!", parse_mode=telegram.ParseMode.MARKDOWN)
 
 
 start_handler = CommandHandler('start', start)
 dispatcher.add_handler(start_handler)
-
-
-#############################
-
-def caps(update, context):
-	text_caps = ' '.join(context.args).upper()
-	context.bot.send_message(chat_id=update.effective_chat.id, text=text_caps)
-
-
-caps_handler = CommandHandler('caps', caps)
-dispatcher.add_handler(caps_handler)
 
 
 #############################
@@ -211,16 +169,28 @@ def add_restaurant(update, context):
 		restaurant_name = context.args[0]
 		restaurant_id = context.args[1]
 
-		data["Restaurant"].append({
+		data["chats"][str(update.effective_chat.id)]["restaurants"].append({
 			"name": restaurant_name,
 			"id": restaurant_id
 		})
-
-		with open('config.json', 'w') as outfile:
-			json.dump(data, outfile, indent=4, sort_keys=True, ensure_ascii=False)
+		dumpToConfigFile(data)
 
 		context.bot.send_message(chat_id=update.effective_chat.id, text=
-			f"Successfully added restaurant '{restaurant_name}' with id {restaurant_id} !")
+		f"Successfully added restaurant '{restaurant_name}' with id {restaurant_id} !")
+
+
+add_restaurant_handler = CommandHandler('addrestaurant', add_restaurant)
+dispatcher.add_handler(add_restaurant_handler)
+
+
+#############################
+# todo: finish this
+def remove_restaurant(update, context):
+	if len(context.args) == 1:
+		restaurant_name = context.args[0]
+
+		context.bot.send_message(chat_id=update.effective_chat.id, text=
+		f"Successfully added restaurant '{restaurant_name}' with id !")
 
 
 add_restaurant_handler = CommandHandler('addrestaurant', add_restaurant)
@@ -229,10 +199,27 @@ dispatcher.add_handler(add_restaurant_handler)
 
 #############################
 
+
 def get_menu(update, context):
+
+	if int(data["chats"][str(update.effective_chat.id)]["menuSentToday"]) >= int(data["chats"][str(update.effective_chat.id)]["sendLimitPerDay"]):
+		return
+
+	# if there is a limit set per day, increment the count by one
+	if int(data["chats"][str(update.effective_chat.id)]["sendLimitPerDay"]) > 0:
+		data["chats"][str(update.effective_chat.id)]["menuSentToday"] = str(int(data["chats"][str(update.effective_chat.id)]["menuSentToday"]) + 1)
+		dumpToConfigFile(data)
+
 	context.bot.send_chat_action(chat_id=update.effective_chat.id, action=telegram.ChatAction.TYPING)
-	context.bot.send_message(chat_id=update.effective_chat.id, text="Alright, getting today's menu...")
-	sendMenuPics(update, context)
+
+	pollQuestion = "Where do you want to eat?"
+	pollOptions = [f"{Restaurant['name']} 🖼" if Restaurant["id"] != "None" else Restaurant["name"] for Restaurant in data["chats"][str(update.effective_chat.id)]["restaurants"]]
+
+	context.bot.send_message(chat_id=update.effective_chat.id, text="Alright, Alright, Alright!")
+	if data["chats"][str(update.effective_chat.id)]["menuDisplayType"] == "image":
+		sendMenuPics(update, context)
+	elif data["chats"][str(update.effective_chat.id)]["menuDisplayType"] == "text":
+		sendMenuText(update, context)
 	context.bot.sendPoll(update.effective_chat.id, pollQuestion, pollOptions, disable_notification=False,
 						 reply_to_message_id=None, reply_markup=None, timeout=None, allows_multiple_answers=True)
 
@@ -248,6 +235,7 @@ def help(update, context):
 	"""
     `/help` - Print this message
     `/menu` - Get the menus with the images and poll\n
+    `/addrestaurant` - Add restaurant (arg1 = name, arg2 = id)
     """,
 							 parse_mode=telegram.ParseMode.MARKDOWN)
 
@@ -258,7 +246,21 @@ dispatcher.add_handler(help_handler)
 
 ##############################
 
-# this runs when the bots recieves undefined commands
+def changeMenuDisplayType(update, context):
+	if context.args[0] == "image":
+		context.bot.send_message(chat_id=update.effective_chat.id, text="yoyoy")
+		data = {}
+		data["MenuDisplayType"] = "image"
+		data = updateConfigFile(data)
+
+
+changeMenuDisplayType_handler = CommandHandler('changeMenuDisplayType', changeMenuDisplayType)
+dispatcher.add_handler(changeMenuDisplayType_handler)
+
+
+##############################
+
+# this runs when the bots receives undefined commands
 def echo(update, context):
 	context.bot.send_message(chat_id=update.effective_chat.id, text="What?")
 
@@ -268,4 +270,22 @@ dispatcher.add_handler(echo_handler)
 
 ##############################
 
-updater.start_polling()
+# if there is a limit set
+x = False
+while x == True:
+	# todo: this is very hacky, find a better solution
+	updater.start_polling()
+	time.sleep(3600)  # check every hour for time
+
+	# if it's midnight, iterate over every chat and reset the menuSentToday
+	if datetime.datetime.now().hour == 0:
+		for chat in data["chats"]:
+			# reset the menuSentToday variable
+			chat["menuSentToday"] = "0"
+
+		dumpToConfigFile(data)
+
+
+
+else:
+	updater.start_polling()
