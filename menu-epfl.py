@@ -115,13 +115,13 @@ def user_is_admin(update, context):
 
 
 # sends the pictures of the menu with the appropriate caption
-def sendMenuPics(update, context):
-	for restaurant_data in data["chats"][str(update.effective_chat.id)]["restaurants"]:
+def sendMenuPics(chat_id, bot):
+	for restaurant_data in data["chats"][str(chat_id)]["restaurants"]:
 		# if a picture of the menu was found
 		if restaurant_data["id"] != "None":
-			context.bot.send_photo(update.effective_chat.id, captureMenuPic(restaurant_data["id"]),
-								   caption=f"{restaurant_data['name']}'s menu", disable_notification=False,
-								   reply_to_message_id=None, reply_markup=None, timeout=20, parse_mode=None)
+			bot.send_photo(chat_id, captureMenuPic(restaurant_data["id"]),
+						   caption=f"{restaurant_data['name']}'s menu", disable_notification=False,
+						   reply_to_message_id=None, reply_markup=None, timeout=20, parse_mode=None)
 
 
 def sendMenuText(update, context):
@@ -235,42 +235,47 @@ help_handler = CommandHandler('help', help)
 dispatcher.add_handler(help_handler)
 
 
-##############################
+######################################
+
 
 @send_action(telegram.ChatAction.TYPING)
-def menu(update, context):
+def menuHandler(update, context):
+	menu(update.effective_chat.id, context.bot)
+
+
+def menu(chat_id, bot):
 	# if the limit of menu sent has been exeeded, cancel
-	if int(data["chats"][str(update.effective_chat.id)]["menuSentToday"]) >= int(
-			data["chats"][str(update.effective_chat.id)]["menuSendLimitPerDay"]):
+	if int(data["chats"][str(chat_id)]["menuSentToday"]) >= int(
+			data["chats"][str(chat_id)]["menuSendLimitPerDay"]):
 		return
 
 	# if there is a limit set per day, increment the count by one
-	if int(data["chats"][str(update.effective_chat.id)]["menuSendLimitPerDay"]) > 0:
-		data["chats"][str(update.effective_chat.id)]["menuSentToday"] = str(
-			int(data["chats"][str(update.effective_chat.id)]["menuSentToday"]) + 1)
+	if int(data["chats"][str(chat_id)]["menuSendLimitPerDay"]) > 0:
+		data["chats"][str(chat_id)]["menuSentToday"] = str(
+			int(data["chats"][str(chat_id)]["menuSentToday"]) + 1)
 		dumpToConfigFile(data)
 
 	pollQuestion = "Where do you want to eat?"
 	pollOptions = [f"{Restaurant['name']} 🖼" if Restaurant["id"] != "None" else Restaurant["name"] for Restaurant in
-				   data["chats"][str(update.effective_chat.id)]["restaurants"]]
+				   data["chats"][str(chat_id)]["restaurants"]]
 
-	context.bot.send_message(chat_id=update.effective_chat.id, text="Alright, Alright, Alright!")
+	bot.send_message(chat_id=chat_id, text="Alright, Alright, Alright!")
 
 	# send menu
-	if data["chats"][str(update.effective_chat.id)]["menuDisplayType"] == "image":
-		sendMenuPics(update, context)
-	elif data["chats"][str(update.effective_chat.id)]["menuDisplayType"] == "text":
-		sendMenuText(update, context)
-	elif data["chats"][str(update.effective_chat.id)]["menuDisplayType"] == "link":
-		sendMenulink(update, context)
+	if data["chats"][str(chat_id)]["menuDisplayType"] == "image":
+		sendMenuPics(chat_id, bot)
+	elif data["chats"][str(chat_id)]["menuDisplayType"] == "text":
+		sendMenuText(chat_id, bot)
+	elif data["chats"][str(chat_id)]["menuDisplayType"] == "link":
+		sendMenulink(chat_id, bot)
 
 	# send poll with multiple answers
 	# the api doesn't support polls with multiple answers
-	link = f"https://api.telegram.org/bot{access_token}/sendPoll?chat_id={update.effective_chat.id}&question={pollQuestion.replace(' ', '+')}&options={json.dumps(pollOptions)}&allows_multiple_answers=true"
+	link = f"https://api.telegram.org/bot{access_token}/sendPoll?chat_id={chat_id}&question={pollQuestion.replace(' ', '+')}&options={json.dumps(pollOptions)}&allows_multiple_answers=true"
 	requests.get(link)
 
 
-menu_handler = CommandHandler('menu', menu)
+menu_handler = CommandHandler('menu', menuHandler)
 dispatcher.add_handler(menu_handler)
 
 
@@ -476,11 +481,14 @@ def resetSentMenu():
 		dumpToConfigFile(data)
 
 
-@tl.job(interval=timedelta(seconds=60))
+@tl.job(interval=timedelta(seconds=55))
 def auto_send_menu():
-	print("checking")
 	# iterate over every chat
 	for chat in data["chats"]:
+		# we don't want to send the menu on weekends
+		if datetime.datetime.now().weekday() == 5 or datetime.datetime.now().weekday() == 6:
+			continue
+
 		# if autoSendMenu == false, skip this chat
 		if data["chats"][chat]["autoSendMenu"] == "false":
 			continue
@@ -493,10 +501,9 @@ def auto_send_menu():
 		if datetime.datetime.now().minute != int(data["chats"][chat]["autoSendMenuTimeOfDay"][-2:]):
 			continue
 
-	# if the time is the same, send the menu
-
-
-# context.bot.send_message(chat_id=update.effective_chat.id, text="Invalid command")
+		# send the menu
+		bot = telegram.Bot(access_token)
+		menu(chat, bot)
 
 
 if __name__ == "__main__":
