@@ -322,6 +322,7 @@ dispatcher.add_handler(reset_handler)
 
 @adminonly
 def add_restaurant(update, context):
+	# todo: add ability to add restaurant with spaces
 	if len(context.args) == 2:
 		restaurant_name = context.args[0]
 		restaurant_id = context.args[1]
