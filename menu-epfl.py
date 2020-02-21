@@ -341,18 +341,24 @@ dispatcher.add_handler(add_restaurant_handler)
 
 
 #############################
-# todo: finish this
+
 @adminonly
 def remove_restaurant(update, context):
-	if len(context.args) == 1:
-		restaurant_name = context.args[0]
+	restaurant_to_delete = ' '.join(context.args).lower()
 
-		context.bot.send_message(chat_id=update.effective_chat.id, text=
-		f"Successfully added restaurant '{restaurant_name}' with id !")
+	for i in range(len(data["chats"][str(update.effective_chat.id)]["restaurants"])):
+		if data["chats"][str(update.effective_chat.id)]["restaurants"][i]['name'].lower() == restaurant_to_delete:
+			del data["chats"][str(update.effective_chat.id)]["restaurants"][i]
+			dumpToConfigFile(data)
+			context.bot.send_message(chat_id=update.effective_chat.id,
+									 text=f"Successfully removed restaurant '{restaurant_to_delete}' !")
+			return
+
+	context.bot.send_message(chat_id=update.effective_chat.id, text="Operation failed")
 
 
-add_restaurant_handler = CommandHandler('addrestaurant', add_restaurant)
-dispatcher.add_handler(add_restaurant_handler)
+remove_restaurant_handler = CommandHandler('removerestaurant', remove_restaurant)
+dispatcher.add_handler(remove_restaurant_handler)
 
 
 #############################
