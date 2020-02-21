@@ -1,24 +1,21 @@
-# only output the menu at 12h each day.
-# ajouter restaurant depuis chat
-# editer restaurant depuis chat
-# add commande help avec toute les commandes
-# configure le moyen de envoye des menu (image, text, link)
-
-
 import datetime
 import json
-import time
+from datetime import timedelta
 from functools import wraps
 from io import BytesIO
 
+# pip install requests
+import requests
 import telegram.parsemode
 # pip install pillow
 from PIL import Image
-from selenium import webdriver
 # pip install selenium
+from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 # pip install python-telegram-bot --upgrade
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+# pip install timeloop
+from timeloop import Timeloop
 
 # selenium requires chromedriver:
 # $ yay -S chromium // chromium browser comes included with chromedriver
@@ -228,7 +225,9 @@ def help(update, context):
 	"`/removerestaurant` - Removes a restaurant (arg1 = name)\n"
 	"`/listrestaurants` - Lists added restaurants\n"
 	"`/setmenulimit` - Sets how many times `/menu` can be called per day (arg1 = int)\n"
-	"`/setmenudisplay` - Sets how the menu should be displayed (arg1 = 'image' | 'text' | 'link')",
+	"`/setmenudisplay` - Sets how the menu should be displayed (arg1 = 'image' | 'text' | 'link')\n"
+	"`/setautosendmenu` - Send menu automatically at specified time (arg1 = 'true' | 'false')\n"
+	"`/setautosendmenutime` - Sets the time at which to send the menu (arg1 = hour, arg2 = min)",
 							 parse_mode=telegram.ParseMode.MARKDOWN)
 
 
@@ -265,9 +264,10 @@ def menu(update, context):
 	elif data["chats"][str(update.effective_chat.id)]["menuDisplayType"] == "link":
 		sendMenulink(update, context)
 
-	# send poll
-	context.bot.sendPoll(update.effective_chat.id, pollQuestion, pollOptions, disable_notification=False,
-						 reply_to_message_id=None, reply_markup=None, timeout=None, allows_multiple_answers=True)
+	# send poll with multiple answers
+	# the api doesn't support polls with multiple answers
+	link = f"https://api.telegram.org/bot{access_token}/sendPoll?chat_id={update.effective_chat.id}&question={pollQuestion.replace(' ', '+')}&options={json.dumps(pollOptions)}&allows_multiple_answers=true"
+	requests.get(link)
 
 
 menu_handler = CommandHandler('menu', menu)
@@ -284,7 +284,7 @@ def start(update, context):
 		data["chats"][str(update.effective_chat.id)] = {
 			# todo: save initial variables here
 			"restaurants": [],
-			"autoSendMenu": "true",
+			"autoSendMenu": "false",
 			"autoSendMenuTimeOfDay": "1130",
 			"menuDisplayType": "image",
 			"menuSentToday": "0",
@@ -403,6 +403,55 @@ dispatcher.add_handler(setmenudisplay_handler)
 
 ##############################
 
+@adminonly
+def setautosendmenu(update, context):
+	boolean = context.args[0].lower()
+	if boolean == "true" or boolean == "false":
+		data["chats"][str(update.effective_chat.id)]["autoSendMenu"] = boolean
+		dumpToConfigFile(data)
+		context.bot.send_message(chat_id=update.effective_chat.id, text="Updated!")
+	else:
+		context.bot.send_message(chat_id=update.effective_chat.id, text="Invalid argument")
+
+
+setautosendmenu_handler = CommandHandler('setautosendmenu', setautosendmenu)
+dispatcher.add_handler(setautosendmenu_handler)
+
+
+##############################
+
+
+@adminonly
+def setautosendmenutime(update, context):
+	if len(context.args) != 2:
+		context.bot.send_message(chat_id=update.effective_chat.id, text="Invalid argument")
+		return
+
+	try:
+		hour = int(context.args[0])
+		minute = int(context.args[1])
+	except ValueError:
+		context.bot.send_message(chat_id=update.effective_chat.id, text="Invalid argument")
+		return
+
+	if hour < 0 or hour > 23 or minute < 0 or minute > 59:
+		context.bot.send_message(chat_id=update.effective_chat.id, text="Invalid argument")
+		return
+
+	hour = str(f"0{hour}") if hour < 10 else str(hour)
+	minute = str(f"0{minute}") if minute < 10 else str(minute)
+
+	data["chats"][str(update.effective_chat.id)]["autoSendMenuTimeOfDay"] = hour + minute
+	dumpToConfigFile(data)
+	context.bot.send_message(chat_id=update.effective_chat.id, text=f"Auto send set to {hour}:{minute}!")
+
+
+setautosendmenutime_handler = CommandHandler('setautosendmenutime', setautosendmenutime)
+dispatcher.add_handler(setautosendmenutime_handler)
+
+
+##############################
+
 # this runs when the bots receives undefined commands
 def echo(update, context):
 	context.bot.send_message(chat_id=update.effective_chat.id, text="Invalid command")
@@ -413,22 +462,43 @@ dispatcher.add_handler(echo_handler)
 
 ##############################
 
-# if there is a limit set
-x = False
-while x == True:
-	# todo: this is very hacky, find a better solution
-	updater.start_polling()
-	time.sleep(3600)  # check every hour for time
+tl = Timeloop()
 
+
+@tl.job(interval=timedelta(seconds=55))
+def resetSentMenu():
 	# if it's midnight, iterate over every chat and reset the menuSentToday
-	if datetime.datetime.now().hour == 0:
+	if datetime.datetime.now().hour == 0 and datetime.datetime.now().minute == 0:
 		for chat in data["chats"]:
 			# reset the menuSentToday variable
-			chat["menuSentToday"] = "0"
+			data["chats"][chat]["menuSentToday"] = "0"
 
 		dumpToConfigFile(data)
 
 
+@tl.job(interval=timedelta(seconds=60))
+def auto_send_menu():
+	print("checking")
+	# iterate over every chat
+	for chat in data["chats"]:
+		# if autoSendMenu == false, skip this chat
+		if data["chats"][chat]["autoSendMenu"] == "false":
+			continue
 
-else:
+		# if hours don't match, continue
+		if datetime.datetime.now().hour != int(data["chats"][chat]["autoSendMenuTimeOfDay"][:2]):
+			continue
+
+		# then check if the minutes matches
+		if datetime.datetime.now().minute != int(data["chats"][chat]["autoSendMenuTimeOfDay"][-2:]):
+			continue
+
+	# if the time is the same, send the menu
+
+
+# context.bot.send_message(chat_id=update.effective_chat.id, text="Invalid command")
+
+
+if __name__ == "__main__":
 	updater.start_polling()
+	tl.start(block=True)
