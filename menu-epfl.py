@@ -11,6 +11,7 @@ import telegram.parsemode
 from PIL import Image
 # pip install selenium
 from selenium import webdriver
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.chrome.options import Options
 # pip install python-telegram-bot --upgrade
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
@@ -27,6 +28,7 @@ chrome_options.add_argument("--headless")
 chrome_options.add_argument("--window-size=1920x1080")
 chrome_driver = "chromedriver"
 driver = webdriver.Chrome(options=chrome_options, executable_path=chrome_driver)
+driver.set_page_load_timeout(30)
 
 # configure the telegram bot
 try:
@@ -53,10 +55,12 @@ dispatcher = updater.dispatcher
 def captureMenuPic(aResto_id: int):
 	# does some web scraping to collect the image of the menu
 	# returns a bytesIO type of the image, which can directly be used
+	# returns None if picture not found/available
 	# to send the image with the telegram API
-	# todo: return None if picture not found/available
-
-	driver.get(f"https://menus.epfl.ch/cgi-bin/getMenus?resto_id={aResto_id}&lang=fr")
+	try:
+		driver.get(f"https://menus.epfl.ch/cgi-bin/getMenus?resto_id={aResto_id}&lang=fr")
+	except TimeoutException:
+		return None
 
 	total_height = driver.execute_script("return document.body.parentNode.scrollHeight")
 	total_width = 1000  # can tweak the value of this
@@ -119,8 +123,13 @@ def sendMenuPics(chat_id, bot):
 	for restaurant_data in data["chats"][str(chat_id)]["restaurants"]:
 		# if a picture of the menu was found
 		if restaurant_data["id"] != "None":
-			bot.send_photo(chat_id, captureMenuPic(restaurant_data["id"]),
-						   caption=f"{restaurant_data['name']}'s menu", disable_notification=False,
+			pic = captureMenuPic(restaurant_data["id"])
+			# if getting picture timed out
+			if pic is None:
+				bot.send_message(chat_id=chat_id, text=f"TimeoutException getting id {restaurant_data['id']}")
+				continue
+
+			bot.send_photo(chat_id, pic, caption=f"{restaurant_data['name']}'s menu", disable_notification=False,
 						   reply_to_message_id=None, reply_markup=None, timeout=20, parse_mode=None)
 
 
@@ -245,8 +254,8 @@ def menuHandler(update, context):
 
 def menu(chat_id, bot):
 	# if the limit of menu sent has been exeeded, cancel
-	if int(data["chats"][str(chat_id)]["menuSentToday"]) >= int(
-			data["chats"][str(chat_id)]["menuSendLimitPerDay"]):
+	if int(data["chats"][str(chat_id)]["menuSentToday"]) >= int(data["chats"][str(chat_id)]["menuSendLimitPerDay"]):
+		bot.send_message(chat_id=chat_id, text="Daily menu limit reached!")
 		return
 
 	# if there is a limit set per day, increment the count by one
