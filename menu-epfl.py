@@ -342,8 +342,8 @@ def add_restaurant(update, context):
 		})
 		dumpToConfigFile(data)
 
-		context.bot.send_message(chat_id=update.effective_chat.id, text=
-		f"Successfully added restaurant '{restaurant_name}' with id {restaurant_id} !")
+		context.bot.send_message(chat_id=update.effective_chat.id,
+								 text=f"Successfully added restaurant '{restaurant_name}' with id {restaurant_id} !")
 
 
 add_restaurant_handler = CommandHandler('addrestaurant', add_restaurant)
