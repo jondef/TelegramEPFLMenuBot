@@ -130,7 +130,7 @@ def sendMenuPics(chat_id, bot):
 				continue
 
 			bot.send_photo(chat_id, pic, caption=f"{restaurant_data['name']}'s menu", disable_notification=False,
-						   reply_to_message_id=None, reply_markup=None, timeout=20, parse_mode=None)
+			               reply_to_message_id=None, reply_markup=None, timeout=20, parse_mode=None)
 
 
 def sendMenuText(update, context):
@@ -237,11 +237,10 @@ def help(update, context):
 	"`/setmenudisplay` - Sets how the menu should be displayed (arg1 = 'image' | 'text' | 'link')\n"
 	"`/setautosendmenu` - Send menu automatically at specified time (arg1 = 'true' | 'false')\n"
 	"`/setautosendmenutime` - Sets the time at which to send the menu (arg1 = hour, arg2 = min)",
-							 parse_mode=telegram.ParseMode.MARKDOWN)
+	                         parse_mode=telegram.ParseMode.MARKDOWN)
 
 
-help_handler = CommandHandler('help', help)
-dispatcher.add_handler(help_handler)
+dispatcher.add_handler(CommandHandler('help', help))
 
 
 ######################################
@@ -266,17 +265,21 @@ def menu(chat_id, bot):
 
 	pollQuestion = "Where do you want to eat?"
 	pollOptions = [f"{Restaurant['name']} 🖼" if Restaurant["id"] != "None" else Restaurant["name"] for Restaurant in
-				   data["chats"][str(chat_id)]["restaurants"]]
+	               data["chats"][str(chat_id)]["restaurants"]]
 
 	bot.send_message(chat_id=chat_id, text="Alright, Alright, Alright!")
 
 	# send menu
 	if data["chats"][str(chat_id)]["menuDisplayType"] == "image":
+		pass
 		sendMenuPics(chat_id, bot)
 	elif data["chats"][str(chat_id)]["menuDisplayType"] == "text":
 		sendMenuText(chat_id, bot)
 	elif data["chats"][str(chat_id)]["menuDisplayType"] == "link":
 		sendMenulink(chat_id, bot)
+
+	bot.sendPoll(chat_id=chat_id, question=pollQuestion, options=pollOptions, allows_multiple_answers="false",
+	             is_anonymous="false")
 
 	# send poll with multiple answers
 	# the api doesn't support polls with multiple answers
@@ -284,8 +287,7 @@ def menu(chat_id, bot):
 	requests.get(link)
 
 
-menu_handler = CommandHandler('menu', menuHandler)
-dispatcher.add_handler(menu_handler)
+dispatcher.add_handler(CommandHandler('menu', menuHandler))
 
 
 ##############################
@@ -311,8 +313,7 @@ def start(update, context):
 		chat_id=update.effective_chat.id, text="Type `/help` to get started!", parse_mode=telegram.ParseMode.MARKDOWN)
 
 
-start_handler = CommandHandler('start', start)
-dispatcher.add_handler(start_handler)
+dispatcher.add_handler(CommandHandler('start', start))
 
 
 #############################
@@ -323,8 +324,7 @@ def reset(update, context):
 	context.bot.send_message(chat_id=update.effective_chat.id, text="not implemented")
 
 
-reset_handler = CommandHandler('reset', reset)
-dispatcher.add_handler(reset_handler)
+dispatcher.add_handler(CommandHandler('reset', reset))
 
 
 #############################
@@ -343,11 +343,10 @@ def add_restaurant(update, context):
 		dumpToConfigFile(data)
 
 		context.bot.send_message(chat_id=update.effective_chat.id,
-								 text=f"Successfully added restaurant '{restaurant_name}' with id {restaurant_id} !")
+		                         text=f"Successfully added restaurant '{restaurant_name}' with id {restaurant_id} !")
 
 
-add_restaurant_handler = CommandHandler('addrestaurant', add_restaurant)
-dispatcher.add_handler(add_restaurant_handler)
+dispatcher.add_handler(CommandHandler('addrestaurant', add_restaurant))
 
 
 #############################
@@ -361,14 +360,13 @@ def remove_restaurant(update, context):
 			del data["chats"][str(update.effective_chat.id)]["restaurants"][i]
 			dumpToConfigFile(data)
 			context.bot.send_message(chat_id=update.effective_chat.id,
-									 text=f"Successfully removed restaurant '{restaurant_to_delete}' !")
+			                         text=f"Successfully removed restaurant '{restaurant_to_delete}' !")
 			return
 
 	context.bot.send_message(chat_id=update.effective_chat.id, text="Operation failed")
 
 
-remove_restaurant_handler = CommandHandler('removerestaurant', remove_restaurant)
-dispatcher.add_handler(remove_restaurant_handler)
+dispatcher.add_handler(CommandHandler('removerestaurant', remove_restaurant))
 
 
 #############################
@@ -377,11 +375,10 @@ dispatcher.add_handler(remove_restaurant_handler)
 def listrestaurants(update, context):
 	for restaurant in data["chats"][str(update.effective_chat.id)]["restaurants"]:
 		context.bot.send_message(chat_id=update.effective_chat.id,
-								 text=f"name: {restaurant['name']} | id: {restaurant['id']}")
+		                         text=f"name: {restaurant['name']} | id: {restaurant['id']}")
 
 
-listrestaurants_handler = CommandHandler('listrestaurants', listrestaurants)
-dispatcher.add_handler(listrestaurants_handler)
+dispatcher.add_handler(CommandHandler('listrestaurants', listrestaurants))
 
 
 ##############################
@@ -401,8 +398,7 @@ def setmenulimit(update, context):
 	context.bot.send_message(chat_id=update.effective_chat.id, text="Updated!")
 
 
-setmenulimit_handler = CommandHandler('setmenulimit', setmenulimit)
-dispatcher.add_handler(setmenulimit_handler)
+dispatcher.add_handler(CommandHandler('setmenulimit', setmenulimit))
 
 
 ##############################
@@ -418,8 +414,7 @@ def setmenudisplay(update, context):
 		context.bot.send_message(chat_id=update.effective_chat.id, text="Invalid argument")
 
 
-setmenudisplay_handler = CommandHandler('setmenudisplay', setmenudisplay)
-dispatcher.add_handler(setmenudisplay_handler)
+dispatcher.add_handler(CommandHandler('setmenudisplay', setmenudisplay))
 
 
 ##############################
@@ -435,8 +430,7 @@ def setautosendmenu(update, context):
 		context.bot.send_message(chat_id=update.effective_chat.id, text="Invalid argument")
 
 
-setautosendmenu_handler = CommandHandler('setautosendmenu', setautosendmenu)
-dispatcher.add_handler(setautosendmenu_handler)
+dispatcher.add_handler(CommandHandler('setautosendmenu', setautosendmenu))
 
 
 ##############################
@@ -467,8 +461,7 @@ def setautosendmenutime(update, context):
 	context.bot.send_message(chat_id=update.effective_chat.id, text=f"Auto send set to {hour}:{minute}!")
 
 
-setautosendmenutime_handler = CommandHandler('setautosendmenutime', setautosendmenutime)
-dispatcher.add_handler(setautosendmenutime_handler)
+dispatcher.add_handler(CommandHandler('setautosendmenutime', setautosendmenutime))
 
 
 ##############################
@@ -478,8 +471,7 @@ def echo(update, context):
 	context.bot.send_message(chat_id=update.effective_chat.id, text="Invalid command")
 
 
-echo_handler = MessageHandler(Filters.text, echo)
-dispatcher.add_handler(echo_handler)
+dispatcher.add_handler(MessageHandler(Filters.text, echo))
 
 ##############################
 
@@ -524,4 +516,5 @@ def auto_send_menu():
 
 if __name__ == "__main__":
 	updater.start_polling()
+	# updater.idle()
 	tl.start(block=True)
