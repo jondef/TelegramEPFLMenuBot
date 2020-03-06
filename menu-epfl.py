@@ -1,5 +1,6 @@
 import datetime
 import json
+import urllib.parse
 from datetime import timedelta
 from functools import wraps
 from io import BytesIO
@@ -24,22 +25,33 @@ from timeloop import Timeloop
 
 # configure the chrome driver
 chrome_options = Options()
-chrome_options.add_argument("--headless")
+# chrome_options.add_argument("--headless")
 chrome_options.add_argument("--window-size=1920x1080")
 chrome_driver = "chromedriver"
 driver = webdriver.Chrome(options=chrome_options, executable_path=chrome_driver)
 driver.set_page_load_timeout(30)
 
-# configure the telegram bot
-try:
-	with open('bot_access_token.txt', 'r') as file:
-		access_token = file.readline().rstrip()
+
+def get_bot_token():
+	"""
+	Tries to get the token from bot_access_token.txt
+	If the file doesn't exist, the program creates the file and
+	then exits
+	:return: bot token
+	"""
+	bot_access_token_file = "bot_access_token.txt"
+	try:
+		with open(bot_access_token_file, 'r') as token_file:
+			access_token = token_file.readline().rstrip()
+	except IOError:
+		print(f"{bot_access_token_file} not found. Creating file...Please enter your token in the file")
+		token_file = open(bot_access_token_file, "w")
+		token_file.close()
+		exit()
+	else:
 		print(f"Using bot token: {access_token}")
-except IOError:
-	print("bot_access_token.txt not found. Creating file...Please enter your token in the file")
-	file = open("bot_access_token.txt", "w")
-	file.close()
-	exit()
+		return access_token
+
 
 updater = Updater(token=access_token, use_context=True)
 dispatcher = updater.dispatcher
@@ -50,6 +62,51 @@ dispatcher = updater.dispatcher
 # !			Helper functions					#
 #												#
 #################################################
+
+
+def get_menu_website():
+	# go to the main website
+	driver.get("https://www.epfl.ch/campus/restaurants-shops-hotels/fr/restauration/")
+
+	# print the available categories to the user and ask which one to select
+	restaurant_categories = ["Restaurants", "Self-Service", "Cafétérias", "Food-trucks"]
+	selected_resto = restaurant_categories[2]
+	# go to the selected category
+	link = driver.find_element_by_xpath(f"//a[contains(@class, 'h3') and contains(text(), '{selected_resto}')]")
+	driver_click(driver, link)
+
+	# get the available services
+	resto_element = driver.find_elements_by_class_name("card-body")
+	available_resto = []
+	for x, y in enumerate(resto_element):
+		available_resto.append(y.text)
+		print(f"{x + 1} {y.text}")
+
+	chosen_resto = available_resto[3]
+
+	# go into the selected restaurant
+	link = driver.find_element_by_xpath(f"//a[contains(text(), '{chosen_resto}')]")
+	driver.execute_script("arguments[0].click();", link)
+
+	frame = driver.find_element_by_id("epfl-restauration")
+	restaurant_link = frame.get_attribute("src")
+
+	parsed = urllib.parse.urlparse(restaurant_link)
+	restaurant_id = urllib.parse.parse_qs(parsed.query)["resto_id"][0]
+
+	print(restaurant_id)
+
+
+# link = driver.find_element_by_xpath("/html/body/div[2]/div[1]/div[2]/div[1]/main/article/div/div[2]/div/div/div[1]/div/div/a")
+# link.click()
+
+# link = driver.find_element_by_link_text('Sauce Labs')
+# link.click()
+
+# switch to iframe driver.switch_to.frame(driver.find_element_by_tag_name('iframe'))
+
+def driver_click(driver, element):
+	driver.execute_script("arguments[0].click();", element)
 
 
 def captureMenuPic(aResto_id: int):
@@ -515,6 +572,10 @@ def auto_send_menu():
 
 
 if __name__ == "__main__":
-	updater.start_polling()
-	# updater.idle()
-	tl.start(block=True)
+	token = get_bot_token()
+	start_bot(token)
+
+	get_menu_website()
+# updater.start_polling()
+# updater.idle()
+# tl.start(block=True)
