@@ -55,28 +55,27 @@ def get_bot_token():
 		return access_token
 
 
-def start_bot(bot_token: str):
-	updater = Updater(token=bot_token, use_context=True)
+def start_bot():
+	updater = Updater(token=BOT_TOKEN, use_context=True)
 	dispatcher = updater.dispatcher
 
 	dispatcher.add_handler(CommandHandler('help', help))
-	dispatcher.add_handler(CommandHandler('menu', menuHandler))
+	dispatcher.add_handler(CommandHandler('menu', menu_handler))
 	dispatcher.add_handler(CommandHandler('start', start))
 	dispatcher.add_handler(CommandHandler('reset', reset))
 	dispatcher.add_handler(CommandHandler('addrestaurant', add_restaurant))
 	dispatcher.add_handler(CommandHandler('removerestaurant', remove_restaurant))
-	dispatcher.add_handler(CommandHandler('listrestaurants', listrestaurants))
-	dispatcher.add_handler(CommandHandler('setmenulimit', setmenulimit))
-	dispatcher.add_handler(CommandHandler('setmenudisplay', setmenudisplay))
-	dispatcher.add_handler(CommandHandler('setautosendmenu', setautosendmenu))
-	dispatcher.add_handler(CommandHandler('setautosendmenutime', setautosendmenutime))
+	dispatcher.add_handler(CommandHandler('listrestaurants', list_restaurants))
+	dispatcher.add_handler(CommandHandler('setmenulimit', set_menu_limit))
+	dispatcher.add_handler(CommandHandler('setmenudisplay', set_menu_display))
+	dispatcher.add_handler(CommandHandler('setautosendmenu', set_auto_send_menu))
+	dispatcher.add_handler(CommandHandler('setautosendmenutime', set_auto_send_menu_time))
 	dispatcher.add_handler(MessageHandler(Filters.text, echo))
 
 	updater.start_polling()
+	# updater.idle()
 	print("Bot started!")
 
-
-# updater.idle()
 
 #################################################
 #												#
@@ -130,7 +129,7 @@ def driver_click(driver, element):
 	driver.execute_script("arguments[0].click();", element)
 
 
-def captureMenuPic(aResto_id: int):
+def capture_menu_pic(aResto_id: int):
 	# does some web scraping to collect the image of the menu
 	# returns a bytesIO type of the image, which can directly be used
 	# returns None if picture not found/available
@@ -197,11 +196,11 @@ def user_is_admin(update, context):
 
 
 # sends the pictures of the menu with the appropriate caption
-def sendMenuPics(chat_id, bot):
+def send_menu_pics(chat_id, bot):
 	for restaurant_data in JSON_DATA["chats"][str(chat_id)]["restaurants"]:
 		# if a picture of the menu was found
 		if restaurant_data["id"] != "None":
-			pic = captureMenuPic(restaurant_data["id"])
+			pic = capture_menu_pic(restaurant_data["id"])
 			# if getting picture timed out
 			if pic is None:
 				bot.send_message(chat_id=chat_id, text=f"TimeoutException getting id {restaurant_data['id']}")
@@ -211,21 +210,28 @@ def sendMenuPics(chat_id, bot):
 			               reply_to_message_id=None, reply_markup=None, timeout=20, parse_mode=None)
 
 
-def sendMenuText(update, context):
+def send_menu_text(update, context):
+	# todo: wtf does that function do?
 	for restaurant_data in JSON_DATA[str(update.effective_chat.id)]["Restaurant"]:
 		# if a picture of the menu was found
 		if restaurant_data["id"] != "None":
 			context.bot.send_message(chat_id=update.effective_chat.id, text="")
 
 
-def sendMenulink(update, context):
+def send_menu_link(update, context):
 	pass  # todo: implement it
 
 
 #################################################
 
 
-def dumpToConfigFile(data):
+def dump_to_config_file(data: dict):
+	"""
+	Call this function when you want to dump the modified
+	json data to the config file.
+	:param data: modified data
+	:return: None
+	"""
 	try:
 		with open("config.json", 'w') as file:
 			json.dump(data, file, indent=4, sort_keys=True, ensure_ascii=False)
@@ -237,6 +243,7 @@ def dumpToConfigFile(data):
 ##########################################
 
 
+# noinspection PyUnboundLocalVariable
 def get_json_data():
 	"""
 	Tries to get the json data from the config file.
@@ -253,9 +260,10 @@ def get_json_data():
 		file = open("config.json", "w")
 		file.close()
 		data = {"chats": {}}
-		dumpToConfigFile(data)
+		dump_to_config_file(data)
 	finally:
 		return data
+
 
 ###########################################
 
@@ -273,7 +281,7 @@ def send_action(action):
 	return decorator
 
 
-def adminonly(input_func):
+def admin_only(input_func):
 	def decorator(*args, **kwargs):
 		# make sure that update and context are passed
 		update = None
@@ -328,12 +336,12 @@ def help(update, context):
 
 
 @send_action(telegram.ChatAction.TYPING)
-def menuHandler(update, context):
+def menu_handler(update, context):
 	menu(update.effective_chat.id, context.bot)
 
 
 def menu(chat_id, bot):
-	# if the limit of menu sent has been exeeded, cancel
+	# if the limit of menu sent has been exceeded, cancel
 	if int(JSON_DATA["chats"][str(chat_id)]["menuSentToday"]) >= int(
 			JSON_DATA["chats"][str(chat_id)]["menuSendLimitPerDay"]):
 		bot.send_message(chat_id=chat_id, text="Daily menu limit reached!")
@@ -343,7 +351,7 @@ def menu(chat_id, bot):
 	if int(JSON_DATA["chats"][str(chat_id)]["menuSendLimitPerDay"]) > 0:
 		JSON_DATA["chats"][str(chat_id)]["menuSentToday"] = str(
 			int(JSON_DATA["chats"][str(chat_id)]["menuSentToday"]) + 1)
-		dumpToConfigFile(JSON_DATA)
+		dump_to_config_file(JSON_DATA)
 
 	pollQuestion = "Where do you want to eat?"
 	pollOptions = [f"{Restaurant['name']} 🖼" if Restaurant["id"] != "None" else Restaurant["name"] for Restaurant in
@@ -353,26 +361,21 @@ def menu(chat_id, bot):
 
 	# send menu
 	if JSON_DATA["chats"][str(chat_id)]["menuDisplayType"] == "image":
-		pass
-		sendMenuPics(chat_id, bot)
+		send_menu_pics(chat_id, bot)
 	elif JSON_DATA["chats"][str(chat_id)]["menuDisplayType"] == "text":
-		sendMenuText(chat_id, bot)
+		send_menu_text(chat_id, bot)
 	elif JSON_DATA["chats"][str(chat_id)]["menuDisplayType"] == "link":
-		sendMenulink(chat_id, bot)
-
-	bot.sendPoll(chat_id=chat_id, question=pollQuestion, options=pollOptions, allows_multiple_answers="false",
-	             is_anonymous="false")
+		send_menu_link(chat_id, bot)
 
 	# send poll with multiple answers
 	# the api doesn't support polls with multiple answers
-	link = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPoll?chat_id={chat_id}&question={pollQuestion.replace(' ', '+')}&options={json.dumps(pollOptions)}&allows_multiple_answers=true"
+	link = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPoll?chat_id={chat_id}&question={pollQuestion.replace(' ', '+')}&options={json.dumps(pollOptions)}&allows_multiple_answers=true&is_anonymous=false"
 	requests.get(link)
-
 
 
 ##############################
 
-@adminonly
+@admin_only
 def start(update, context):
 	# configure the start command
 	# if the current chat id is not in data
@@ -386,28 +389,24 @@ def start(update, context):
 			"menuSentToday": "0",
 			"menuSendLimitPerDay": "10"
 		}
-		dumpToConfigFile(JSON_DATA)
+		dump_to_config_file(JSON_DATA)
 		context.bot.send_message(chat_id=update.effective_chat.id, text="Chat added")
 
 	context.bot.send_message(
 		chat_id=update.effective_chat.id, text="Type `/help` to get started!", parse_mode=telegram.ParseMode.MARKDOWN)
 
 
-
-
 #############################
 
-@adminonly
+@admin_only
 def reset(update, context):
 	# todo: finish this
 	context.bot.send_message(chat_id=update.effective_chat.id, text="not implemented")
 
 
-
-
 #############################
 
-@adminonly
+@admin_only
 def add_restaurant(update, context):
 	# todo: add ability to add restaurant with spaces
 	if len(context.args) == 2:
@@ -418,24 +417,22 @@ def add_restaurant(update, context):
 			"name": restaurant_name,
 			"id": restaurant_id
 		})
-		dumpToConfigFile(JSON_DATA)
+		dump_to_config_file(JSON_DATA)
 
 		context.bot.send_message(chat_id=update.effective_chat.id,
 		                         text=f"Successfully added restaurant '{restaurant_name}' with id {restaurant_id} !")
 
 
-
-
 #############################
 
-@adminonly
+@admin_only
 def remove_restaurant(update, context):
 	restaurant_to_delete = ' '.join(context.args).lower()
 
 	for i in range(len(JSON_DATA["chats"][str(update.effective_chat.id)]["restaurants"])):
 		if JSON_DATA["chats"][str(update.effective_chat.id)]["restaurants"][i]['name'].lower() == restaurant_to_delete:
 			del JSON_DATA["chats"][str(update.effective_chat.id)]["restaurants"][i]
-			dumpToConfigFile(JSON_DATA)
+			dump_to_config_file(JSON_DATA)
 			context.bot.send_message(chat_id=update.effective_chat.id,
 			                         text=f"Successfully removed restaurant '{restaurant_to_delete}' !")
 			return
@@ -443,23 +440,19 @@ def remove_restaurant(update, context):
 	context.bot.send_message(chat_id=update.effective_chat.id, text="Operation failed")
 
 
-
-
 #############################
 
-@adminonly
-def listrestaurants(update, context):
+@admin_only
+def list_restaurants(update, context):
 	for restaurant in JSON_DATA["chats"][str(update.effective_chat.id)]["restaurants"]:
 		context.bot.send_message(chat_id=update.effective_chat.id,
 		                         text=f"name: {restaurant['name']} | id: {restaurant['id']}")
 
 
-
-
 ##############################
 
-@adminonly
-def setmenulimit(update, context):
+@admin_only
+def set_menu_limit(update, context):
 	# todo: allow negative numbers?
 	limit = 0
 	try:
@@ -469,47 +462,41 @@ def setmenulimit(update, context):
 		return
 
 	JSON_DATA["chats"][str(update.effective_chat.id)]["menuSendLimitPerDay"] = str(limit)
-	dumpToConfigFile(JSON_DATA)
+	dump_to_config_file(JSON_DATA)
 	context.bot.send_message(chat_id=update.effective_chat.id, text="Updated!")
 
 
-
-
 ##############################
 
-@adminonly
-def setmenudisplay(update, context):
+@admin_only
+def set_menu_display(update, context):
 	arg = context.args[0]
 	if arg == "image" or arg == "text" or arg == "link":
 		JSON_DATA["chats"][str(update.effective_chat.id)]["menuDisplayType"] = context.args[0]
-		dumpToConfigFile(JSON_DATA)
+		dump_to_config_file(JSON_DATA)
 		context.bot.send_message(chat_id=update.effective_chat.id, text="Updated!")
 	else:
 		context.bot.send_message(chat_id=update.effective_chat.id, text="Invalid argument")
 
 
-
-
 ##############################
 
-@adminonly
-def setautosendmenu(update, context):
+@admin_only
+def set_auto_send_menu(update, context):
 	boolean = context.args[0].lower()
 	if boolean == "true" or boolean == "false":
 		JSON_DATA["chats"][str(update.effective_chat.id)]["autoSendMenu"] = boolean
-		dumpToConfigFile(JSON_DATA)
+		dump_to_config_file(JSON_DATA)
 		context.bot.send_message(chat_id=update.effective_chat.id, text="Updated!")
 	else:
 		context.bot.send_message(chat_id=update.effective_chat.id, text="Invalid argument")
 
 
-
-
 ##############################
 
 
-@adminonly
-def setautosendmenutime(update, context):
+@admin_only
+def set_auto_send_menu_time(update, context):
 	if len(context.args) != 2:
 		context.bot.send_message(chat_id=update.effective_chat.id, text="Invalid argument")
 		return
@@ -529,10 +516,8 @@ def setautosendmenutime(update, context):
 	minute = str(f"0{minute}") if minute < 10 else str(minute)
 
 	JSON_DATA["chats"][str(update.effective_chat.id)]["autoSendMenuTimeOfDay"] = hour + minute
-	dumpToConfigFile(JSON_DATA)
+	dump_to_config_file(JSON_DATA)
 	context.bot.send_message(chat_id=update.effective_chat.id, text=f"Auto send set to {hour}:{minute}!")
-
-
 
 
 ##############################
@@ -542,21 +527,20 @@ def echo(update, context):
 	context.bot.send_message(chat_id=update.effective_chat.id, text="Invalid command")
 
 
-
 ##############################
 
 tl = Timeloop()
 
 
 @tl.job(interval=timedelta(seconds=55))
-def resetSentMenu():
+def reset_sent_menu():
 	# if it's midnight, iterate over every chat and reset the menuSentToday
 	if datetime.datetime.now().hour == 0 and datetime.datetime.now().minute == 0:
 		for chat in JSON_DATA["chats"]:
 			# reset the menuSentToday variable
 			JSON_DATA["chats"][chat]["menuSentToday"] = "0"
 
-		dumpToConfigFile(JSON_DATA)
+		dump_to_config_file(JSON_DATA)
 
 
 @tl.job(interval=timedelta(seconds=55))
@@ -590,5 +574,5 @@ if __name__ == "__main__":
 	JSON_DATA = get_json_data()
 	DRIVER = start_driver()
 
-	start_bot(BOT_TOKEN)
+	start_bot()
 	tl.start(block=True)
