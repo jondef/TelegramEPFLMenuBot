@@ -1,5 +1,8 @@
+import menu_epfl
+
+
 def main():
-	pass
+	menu_epfl.main()
 
 
 main()

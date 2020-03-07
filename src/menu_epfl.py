@@ -569,7 +569,8 @@ def auto_send_menu():
 		menu(chat, bot)
 
 
-if __name__ != "__main__":
+def main():
+	global BOT_TOKEN, JSON_DATA, DRIVER
 	# define globals
 	BOT_TOKEN = get_bot_token()
 	JSON_DATA = get_json_data()
