@@ -1,5 +1,5 @@
 .idea/
 .vscode/
 venv/
-bot_access_token.txt
-config.json
+src/bot_access_token.txt
+src/config.json

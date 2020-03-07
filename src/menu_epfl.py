@@ -408,6 +408,7 @@ def reset(update, context):
 
 @admin_only
 def add_restaurant(update, context):
+	print("fuc")
 	# todo: add ability to add restaurant with spaces
 	if len(context.args) == 2:
 		restaurant_name = context.args[0]
@@ -568,7 +569,7 @@ def auto_send_menu():
 		menu(chat, bot)
 
 
-if __name__ == "__main__":
+if __name__ != "__main__":
 	# define globals
 	BOT_TOKEN = get_bot_token()
 	JSON_DATA = get_json_data()
