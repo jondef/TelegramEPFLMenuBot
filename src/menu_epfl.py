@@ -281,31 +281,36 @@ def send_action(action):
 	return decorator
 
 
-def admin_only(input_func):
-	def decorator(*args, **kwargs):
-		# make sure that update and context are passed
-		update = None
-		context = None
-		for arg in args:
-			if type(arg) == telegram.update.Update:
-				update = arg
-			elif type(arg) == telegram.ext.callbackcontext.CallbackContext:
-				context = arg
+def restricted(func):
+	@wraps(func)
+	def wrapped(update, context, *args, **kwargs):
+		user_id = update.effective_user.id
+		if user_id not in LIST_OF_ADMINS:
+			print("Unauthorized access denied for {}.".format(user_id))
+			return
+		return func(update, context, *args, **kwargs)
 
+	return wrapped
+
+
+def admin_only(input_func):
+	@wraps(input_func)
+	def wrapped(update, context, *args, **kwargs):
 		# if update or context are not passed, just call the function
 		if update is None or context is None:
-			input_func(*args, **kwargs)
+			return input_func(*args, **kwargs)
 
 		# if user is in a private chat with the bot, allow every function
 		elif update.effective_chat.type == "private":
-			input_func(*args, **kwargs)
-
+			return input_func(*args, **kwargs)
 		elif user_is_admin(update, context):
-			input_func(*args, **kwargs)
+			return input_func(*args, **kwargs)
 		else:
+			print(f"Unauthorized access denied for {update.effective_user.id}.")
 			context.bot.send_message(chat_id=update.effective_chat.id, text="only admins can run this command")
+			return
 
-	return decorator
+	return wrapped
 
 
 #################################################
@@ -400,8 +405,14 @@ def start(update, context):
 
 @admin_only
 def reset(update, context):
-	# todo: finish this
+	# todo: finish this # make this function server owner only
 	context.bot.send_message(chat_id=update.effective_chat.id, text="not implemented")
+
+
+#############################
+
+def update(update, context):
+	pass
 
 
 #############################
@@ -570,8 +581,9 @@ def auto_send_menu():
 
 
 def main():
-	global BOT_TOKEN, JSON_DATA, DRIVER
 	# define globals
+	global BOT_TOKEN, JSON_DATA, DRIVER
+
 	BOT_TOKEN = get_bot_token()
 	JSON_DATA = get_json_data()
 	DRIVER = start_driver()
