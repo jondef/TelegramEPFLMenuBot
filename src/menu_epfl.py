@@ -55,26 +55,23 @@ def get_bot_token():
 		return access_token
 
 
-def start_bot():
-	updater = Updater(token=BOT_TOKEN, use_context=True)
-	dispatcher = updater.dispatcher
+def run_once(func):
+	@wraps(func)
+	def wrapper(*args, **kwargs):
+		if not wrapper.has_run:
+			wrapper.has_run = True
+			return func(*args, **kwargs)
 
-	dispatcher.add_handler(CommandHandler('help', help))
-	dispatcher.add_handler(CommandHandler('menu', menu_handler))
-	dispatcher.add_handler(CommandHandler('start', start))
-	dispatcher.add_handler(CommandHandler('reset', reset))
-	dispatcher.add_handler(CommandHandler('addrestaurant', add_restaurant))
-	dispatcher.add_handler(CommandHandler('removerestaurant', remove_restaurant))
-	dispatcher.add_handler(CommandHandler('listrestaurants', list_restaurants))
-	dispatcher.add_handler(CommandHandler('setmenulimit', set_menu_limit))
-	dispatcher.add_handler(CommandHandler('setmenudisplay', set_menu_display))
-	dispatcher.add_handler(CommandHandler('setautosendmenu', set_auto_send_menu))
-	dispatcher.add_handler(CommandHandler('setautosendmenutime', set_auto_send_menu_time))
-	dispatcher.add_handler(MessageHandler(Filters.text, echo))
+	wrapper.has_run = False
+	return wrapper
 
-	updater.start_polling()
-	# updater.idle()
-	print("Bot started!")
+
+@run_once
+def init_bot():
+	global UPDATER, BOT_TOKEN
+
+	BOT_TOKEN = get_bot_token()
+	UPDATER = Updater(token=BOT_TOKEN, use_context=True)
 
 
 #################################################
@@ -184,8 +181,6 @@ def get_admin_ids(update, context):
 
 
 def user_is_admin(update, context):
-	print(update)
-	print(context)
 	if update.effective_user.id in get_admin_ids(update, context):
 		return True
 	else:
@@ -281,31 +276,19 @@ def send_action(action):
 	return decorator
 
 
-def restricted(func):
-	@wraps(func)
-	def wrapped(update, context, *args, **kwargs):
-		user_id = update.effective_user.id
-		if user_id not in LIST_OF_ADMINS:
-			print("Unauthorized access denied for {}.".format(user_id))
-			return
-		return func(update, context, *args, **kwargs)
-
-	return wrapped
-
-
 def admin_only(input_func):
 	@wraps(input_func)
 	def wrapped(update, context, *args, **kwargs):
 		# if update or context are not passed, just call the function
 		if update is None or context is None:
-			return input_func(*args, **kwargs)
-
+			return input_func(update, context, *args, **kwargs)
 		# if user is in a private chat with the bot, allow every function
 		elif update.effective_chat.type == "private":
-			return input_func(*args, **kwargs)
+			return input_func(update, context, *args, **kwargs)
 		elif user_is_admin(update, context):
-			return input_func(*args, **kwargs)
+			return input_func(update, context, *args, **kwargs)
 		else:
+			# todo: reply to message that got denied
 			print(f"Unauthorized access denied for {update.effective_user.id}.")
 			context.bot.send_message(chat_id=update.effective_chat.id, text="only admins can run this command")
 			return
@@ -319,7 +302,31 @@ def admin_only(input_func):
 #												#
 #################################################
 
-def help(update, context):
+
+def my_add_handler(handler):
+	# This code will run only once per decorated function.
+	try:
+		# try to add the handler
+		UPDATER.dispatcher.add_handler(handler)
+	except NameError:
+		# if UPDATER has not been initialized yet
+		init_bot()
+	finally:
+		# try to add the handler again
+		UPDATER.dispatcher.add_handler(handler)
+
+	def decorator(input_func):
+		@wraps(input_func)
+		def wrapped(update, context, *args, **kwargs):
+			return input_func(update, context, *args, **kwargs)
+
+		return wrapped
+
+	return decorator
+
+
+@my_add_handler(CommandHandler("help", lambda *args, **kwargs: help_handler(*args, **kwargs)))
+def help_handler(update, context):
 	context.bot.send_message(chat_id=update.effective_chat.id, text=
 	"`/help` - Print this message\n"
 	"`/menu` - Get the menus with the images and poll\n"
@@ -341,6 +348,7 @@ def help(update, context):
 
 
 @send_action(telegram.ChatAction.TYPING)
+@my_add_handler(CommandHandler("menu", lambda *args, **kwargs: menu_handler(*args, **kwargs)))
 def menu_handler(update, context):
 	menu(update.effective_chat.id, context.bot)
 
@@ -381,7 +389,8 @@ def menu(chat_id, bot):
 ##############################
 
 @admin_only
-def start(update, context):
+@my_add_handler(CommandHandler("start", lambda *args, **kwargs: start_handler(*args, **kwargs)))
+def start_handler(update, context):
 	# configure the start command
 	# if the current chat id is not in data
 	if str(update.effective_chat.id) not in JSON_DATA["chats"]:
@@ -404,22 +413,25 @@ def start(update, context):
 #############################
 
 @admin_only
-def reset(update, context):
+@my_add_handler(CommandHandler("reset", lambda *args, **kwargs: reset_handler(*args, **kwargs)))
+def reset_handler(update, context):
 	# todo: finish this # make this function server owner only
 	context.bot.send_message(chat_id=update.effective_chat.id, text="not implemented")
 
 
 #############################
 
-def update(update, context):
+@my_add_handler(CommandHandler("update", lambda *args, **kwargs: update_handler(*args, **kwargs)))
+def update_handler(update, context):
+	# todo: this function is supposed to update the bot script
 	pass
 
 
 #############################
 
 @admin_only
+@my_add_handler(CommandHandler("addrestaurant", lambda *args, **kwargs: add_restaurant(*args, **kwargs)))
 def add_restaurant(update, context):
-	print("fuc")
 	# todo: add ability to add restaurant with spaces
 	if len(context.args) == 2:
 		restaurant_name = context.args[0]
@@ -438,6 +450,7 @@ def add_restaurant(update, context):
 #############################
 
 @admin_only
+@my_add_handler(CommandHandler("removerestaurant", lambda *args, **kwargs: remove_restaurant(*args, **kwargs)))
 def remove_restaurant(update, context):
 	restaurant_to_delete = ' '.join(context.args).lower()
 
@@ -455,6 +468,7 @@ def remove_restaurant(update, context):
 #############################
 
 @admin_only
+@my_add_handler(CommandHandler("listrestaurants", lambda *args, **kwargs: list_restaurants(*args, **kwargs)))
 def list_restaurants(update, context):
 	for restaurant in JSON_DATA["chats"][str(update.effective_chat.id)]["restaurants"]:
 		context.bot.send_message(chat_id=update.effective_chat.id,
@@ -464,6 +478,7 @@ def list_restaurants(update, context):
 ##############################
 
 @admin_only
+@my_add_handler(CommandHandler("setmenulimit", lambda *args, **kwargs: set_menu_limit(*args, **kwargs)))
 def set_menu_limit(update, context):
 	# todo: allow negative numbers?
 	limit = 0
@@ -481,6 +496,7 @@ def set_menu_limit(update, context):
 ##############################
 
 @admin_only
+@my_add_handler(CommandHandler("setmenudisplay", lambda *args, **kwargs: set_menu_display(*args, **kwargs)))
 def set_menu_display(update, context):
 	arg = context.args[0]
 	if arg == "image" or arg == "text" or arg == "link":
@@ -494,6 +510,7 @@ def set_menu_display(update, context):
 ##############################
 
 @admin_only
+@my_add_handler(CommandHandler("setautosendmenu", lambda *args, **kwargs: set_auto_send_menu(*args, **kwargs)))
 def set_auto_send_menu(update, context):
 	boolean = context.args[0].lower()
 	if boolean == "true" or boolean == "false":
@@ -508,6 +525,7 @@ def set_auto_send_menu(update, context):
 
 
 @admin_only
+@my_add_handler(CommandHandler("setautosendmenutime", lambda *args, **kwargs: set_auto_send_menu_time(*args, **kwargs)))
 def set_auto_send_menu_time(update, context):
 	if len(context.args) != 2:
 		context.bot.send_message(chat_id=update.effective_chat.id, text="Invalid argument")
@@ -535,6 +553,7 @@ def set_auto_send_menu_time(update, context):
 ##############################
 
 # this runs when the bots receives undefined commands
+@my_add_handler(MessageHandler(Filters.text, lambda *args, **kwargs: echo(*args, **kwargs)))
 def echo(update, context):
 	context.bot.send_message(chat_id=update.effective_chat.id, text="Invalid command")
 
@@ -581,12 +600,18 @@ def auto_send_menu():
 
 
 def main():
-	# define globals
-	global BOT_TOKEN, JSON_DATA, DRIVER
+	global JSON_DATA, DRIVER
 
-	BOT_TOKEN = get_bot_token()
+	init_bot()
+
 	JSON_DATA = get_json_data()
 	DRIVER = start_driver()
 
-	start_bot()
-	tl.start(block=True)
+	UPDATER.start_polling()
+
+
+# tl.start(block=True)
+
+
+if __name__ == '__main__':
+	main()
