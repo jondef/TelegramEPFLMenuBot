@@ -45,7 +45,7 @@ def get_bot_token():
 	try:
 		with open(bot_access_token_file, 'r') as token_file:
 			access_token = token_file.readline().rstrip()
-	except IOError:
+	except IOError:  # todo: use FileNotFoundError?
 		print(f"{bot_access_token_file} not found. Creating file...\nPlease enter your token in the file")
 		token_file = open(bot_access_token_file, "w")
 		token_file.close()
@@ -238,7 +238,6 @@ def dump_to_config_file(data: dict):
 ##########################################
 
 
-# noinspection PyUnboundLocalVariable
 def get_json_data():
 	"""
 	Tries to get the json data from the config file.
@@ -423,6 +422,8 @@ def reset_handler(update, context):
 
 @my_add_handler(CommandHandler("update", lambda *args, **kwargs: update_handler(*args, **kwargs)))
 def update_handler(update, context):
+	# todo: check if user is server admin
+
 	# todo: this function is supposed to update the bot script
 	pass
 
@@ -608,9 +609,7 @@ def main():
 	DRIVER = start_driver()
 
 	UPDATER.start_polling()
-
-
-# tl.start(block=True)
+	tl.start(block=False)
 
 
 if __name__ == '__main__':
