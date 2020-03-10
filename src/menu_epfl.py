@@ -1,5 +1,7 @@
 import datetime
 import json
+import subprocess
+import sys
 import urllib.parse
 from datetime import timedelta
 from functools import wraps
@@ -7,6 +9,7 @@ from io import BytesIO
 
 # pip install requests
 import requests
+# pip install python-telegram-bot --upgrade
 import telegram.parsemode
 # pip install pillow
 from PIL import Image
@@ -14,7 +17,6 @@ from PIL import Image
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.chrome.options import Options
-# pip install python-telegram-bot --upgrade
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 # pip install timeloop
 from timeloop import Timeloop
@@ -418,14 +420,16 @@ def reset_handler(update, context):
 	context.bot.send_message(chat_id=update.effective_chat.id, text="not implemented")
 
 
+
 #############################
 
 @my_add_handler(CommandHandler("update", lambda *args, **kwargs: update_handler(*args, **kwargs)))
 def update_handler(update, context):
 	# todo: check if user is server admin
-
 	# todo: this function is supposed to update the bot script
-	pass
+	string = "import subprocess,sys,time,os;time.sleep(5);os.system('git pull');f=open('pulled.txt','w');f.close();time.sleep(3);subprocess.Popen([sys.executable, 'menu_epfl.py'],shell=False,stdout=None, stderr=None);f=open('done.txt','w');f.close()"
+	subprocess.Popen([sys.executable, "-c", string], shell=False, stdout=None, stderr=None)
+	exit(0)
 
 
 #############################
