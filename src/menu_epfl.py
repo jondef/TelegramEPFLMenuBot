@@ -417,7 +417,7 @@ def start_handler(update, context):
 @my_add_handler(CommandHandler("reset", lambda *args, **kwargs: reset_handler(*args, **kwargs)))
 def reset_handler(update, context):
 	# todo: finish this # make this function server owner only
-	context.bot.send_message(chat_id=update.effective_chat.id, text="not implemented")
+	context.bot.send_message(chat_id=update.effective_chat.id, text="not ")
 
 
 
