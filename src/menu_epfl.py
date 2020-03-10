@@ -1,5 +1,6 @@
 import datetime
 import json
+import os
 import subprocess
 import sys
 import urllib.parse
@@ -417,7 +418,7 @@ def start_handler(update, context):
 @my_add_handler(CommandHandler("reset", lambda *args, **kwargs: reset_handler(*args, **kwargs)))
 def reset_handler(update, context):
 	# todo: finish this # make this function server owner only
-	context.bot.send_message(chat_id=update.effective_chat.id, text="not ")
+	context.bot.send_message(chat_id=update.effective_chat.id, text="not implemented")
 
 
 
@@ -427,8 +428,10 @@ def reset_handler(update, context):
 def update_handler(update, context):
 	# todo: check if user is server admin
 	# todo: this function is supposed to update the bot script
-	string = "import subprocess,sys,time,os;time.sleep(5);os.system('git pull');f=open('pulled.txt','w');f.close();time.sleep(3);subprocess.Popen([sys.executable, 'menu_epfl.py'],shell=False,stdout=None, stderr=None);f=open('done.txt','w');f.close()"
+	script_name = os.path.basename(__file__)  # with extension
+	string = f"import subprocess,sys,time,os;time.sleep(5);os.system('git pull');f=open('pulled.txt','w');f.close();time.sleep(3);subprocess.Popen([sys.executable, '{script_name}'],shell=False,stdout=None, stderr=None);f=open('done.txt','w');f.close()"
 	subprocess.Popen([sys.executable, "-c", string], shell=False, stdout=None, stderr=None)
+	context.bot.send_message(chat_id=update.effective_chat.id, text="Updating...")
 	exit(0)
 
 
