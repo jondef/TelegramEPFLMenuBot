@@ -1,7 +1,6 @@
 import datetime
 import json
 import logging
-import os
 import subprocess
 import sys
 import traceback
@@ -409,8 +408,6 @@ def help_handler(update, context):
 @send_action(telegram.ChatAction.TYPING)
 @my_add_handler(CommandHandler("menu", lambda *args, **kwargs: menu_handler(*args, **kwargs)))
 def menu_handler(update, context):
-	lik = [1, 2, 3]
-	print(lik[5])
 	menu(update.effective_chat.id, context.bot)
 
 
@@ -486,16 +483,23 @@ def reset_handler(update, context):
 def update_handler(update, context):
 	# todo: check if user is server admin using handler user filer
 	# todo: this function is supposed to update the bot script
-	print("yep")
-	script_name = os.path.basename(__file__)  # with extension
-	print("damn")
+
+	# todo: the following line raises an error
+	# script_name = os.path.basename(__file__)  # with extension
+	script_name = "menu_epfl.py"  # with extension
+
+	# todo:
+	# maybe os.exec (et les autres fonctions dans le style) seront plus courtes et simples que d'ouvrir un child process, le reparenter et quitter (avec Popen)
+	# Du coup tu pourrais git pull dans un child avec Popen
+	# Et ensuite remplacer l'image exécutable avec exec
+	# Si le pull est passé
+	# Ou cracher du sang dans le chat sinon"""
 	string = f"import subprocess,sys,time,os;time.sleep(2);os.system('git pull');time.sleep(1);subprocess.Popen([sys.executable,'{script_name}'],shell=False,stdout=None, stderr=None)"
 	# os.execl(sys.executable, sys.executable, *sys.argv)
 	LOGGER.info(string)
 	context.bot.send_message(chat_id=update.effective_chat.id, text="Updating...")
-	subprocess.Popen([sys.executable, "-c", "import time;time.sleep(10);f=open('pulled.txt','w');f.close()"],
-	                 shell=False, stdout=None, stderr=None)
-	# subprocess.Popen([sys.executable, "-c", string], shell=False, stdout=None, stderr=None)
+	# subprocess.Popen([sys.executable, "-c", "import time;time.sleep(10);f=open('pulled.txt','w');f.close()"], shell=False, stdout=None, stderr=None)
+	subprocess.Popen([sys.executable, "-c", string], shell=False, stdout=None, stderr=None)
 
 	UPDATER.stop()
 	exit(0)
